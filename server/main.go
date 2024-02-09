@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
 type CurrencyQuoteDTO struct {
@@ -27,7 +31,7 @@ type CurrencyQuoteDTO struct {
 
 type CurrencyQuote struct {
 	gorm.Model
-	ID        string `gorm:"primaryKey"`
+	ID        string `gorm:"type:uuid;"`
 	Value     float64
 	Code      string
 	Codein    string
@@ -42,6 +46,7 @@ func main() {
 	http.HandleFunc("/get-dollar-quote", GetDollarQuoteHandler)
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
+		log.Printf("Error: %s", err.Error())
 		return
 	}
 
@@ -56,6 +61,14 @@ func GetDollarQuoteHandler(w http.ResponseWriter, r *http.Request) {
 	dolarQuote, err := GetDollarQuote("USD-BRL")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %s", err.Error())
+		return
+	}
+
+	err = createCurrencyDB(dolarQuote)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %s", err.Error())
 		return
 	}
 
@@ -63,25 +76,31 @@ func GetDollarQuoteHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(dolarQuote)
 	if err != nil {
-		panic(err)
-	}
-
-	err = createCurrencyDB(dolarQuote)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Printf("Error: %s", err.Error())
 		return
 	}
-
 }
 
 func GetDollarQuote(cep string) (*CurrencyQuoteDTO, error) {
-	res, err := http.Get("https://economia.awesomeapi.com.br/json/last/USD-BRL")
+	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Millisecond)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://economia.awesomeapi.com.br/json/last/USD-BRL", nil)
 	if err != nil {
+		log.Printf("Error: %s", err.Error())
 		return nil, err
 	}
+
+	res, err := http.DefaultClient.Do(req.WithContext(ctx))
+	if err != nil {
+		log.Printf("Error: %s", err.Error())
+		return nil, err
+	}
+
 	defer res.Body.Close()
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
+		log.Printf("Error: %s", err.Error())
 		return nil, err
 	}
 	var currencyQuote CurrencyQuoteDTO
@@ -90,6 +109,9 @@ func GetDollarQuote(cep string) (*CurrencyQuoteDTO, error) {
 }
 
 func createCurrencyDB(dto *CurrencyQuoteDTO) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
 
 	if _, err := os.Stat("./data"); os.IsNotExist(err) {
 		err := os.Mkdir("./data", os.ModePerm)
@@ -131,7 +153,9 @@ func createCurrencyDB(dto *CurrencyQuoteDTO) error {
 	if err != nil {
 		return err
 	}
-	db.Create(&CurrencyQuote{
+
+	err = db.WithContext(ctx).Create(&CurrencyQuote{
+		ID:        uuid.New().String(),
 		Value:     fBid,
 		Code:      v.Code,
 		Codein:    v.CodeIn,
@@ -139,8 +163,11 @@ func createCurrencyDB(dto *CurrencyQuoteDTO) error {
 		Low:       fLow,
 		Name:      v.Name,
 		PctChange: fPctChange,
-	})
+	}).Error
+	if err != nil {
+		log.Printf("Error: %s", err.Error())
+		return err
+	}
 
 	return nil
-
 }
