@@ -58,7 +58,7 @@ func main() {
 		return
 	}
 
-	http.HandleFunc("/get-dollar-quote", app.GetDollarQuoteHandler)
+	http.HandleFunc("/cotacao", app.GetDollarQuoteHandler)
 	err = http.ListenAndServe(":8080", nil)
 	if err != nil {
 		log.Printf("main() failed to start server: %s", err.Error())
@@ -68,7 +68,7 @@ func main() {
 }
 
 func (app *App) GetDollarQuoteHandler(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/get-dollar-quote" {
+	if r.URL.Path != "/cotacao" {
 		http.Error(w, "404 not found.", http.StatusNotFound)
 		return
 	}
