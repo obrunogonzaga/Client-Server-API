@@ -33,7 +33,7 @@ func getDollarQuote() (*CurrencyQuoteDTO, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8080/get-dollar-quote", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost:8080/cotacao", nil)
 	if err != nil {
 		fmt.Printf("main() failed to create request: %s", err.Error())
 		return nil, fmt.Errorf("main() failed to create request: %s", err.Error())
