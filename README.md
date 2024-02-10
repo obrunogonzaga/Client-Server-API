@@ -9,6 +9,7 @@ Este repositório contém duas aplicações em Go que trabalham em conjunto para
 ## Arquitetura do Sistema
 
 A imagem a seguir apresenta a arquitetura do sistema, detalhando a interação entre `client.go` e `server.go`, e como eles se conectam com a API externa e o banco de dados SQLite.
+![img.png](img.png)
 
 ## Como Funciona
 **server.go**
